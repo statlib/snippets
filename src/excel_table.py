@@ -1,5 +1,6 @@
 import pandas as pd
 
+
 def write_table(
     df: pd.DataFrame,
     fpath: str,
@@ -13,10 +14,12 @@ def write_table(
     assert isinstance(df, pd.DataFrame), "'df' must be a Pandas DataFrame"
     if reset_index:
         df = df.reset_index(drop=True)
-    w = pd.ExcelWriter(fpath, engine="xlsxwriter")    
-    df.style.set_properties(**{"text-align": h_align, "vertical-align": v_align})
-    df.to_excel(w, sheet_name=sheet_name, startrow=1, header=False, index=False)
-    
+    w = pd.ExcelWriter(fpath, engine="xlsxwriter")
+    (
+        df.style.set_properties(
+            **{"text-align": h_align, "vertical-align": v_align}
+        ).to_excel(w, sheet_name=sheet_name, startrow=1, header=False, index=False)
+    )
     wb = w.book
     ws = w.sheets[sheet_name]
     d = df.shape
