@@ -14,14 +14,19 @@
     Want to learn
 */
 
+SELECT
+    setseed(123);
+
 CREATE OR REPLACE TABLE dummy AS (
     WITH RECURSIVE
         spine AS (
             SELECT
-                DATE '2021-01-01' AS statement_date
+                DATE '2022-01-01' AS statement_date,
+                random() / random() AS financial_metric
             UNION ALL
             SELECT
-                statement_date + INTERVAL 1 MONTH
+                statement_date + INTERVAL 1 MONTH,
+                financial_metric + .25 * random()
             FROM 
                 spine
             WHERE
@@ -31,25 +36,46 @@ CREATE OR REPLACE TABLE dummy AS (
             SELECT
                 range + 1 id
             FROM    
-                range(46000)
+                range(50000)
         ),
-        cte AS (
+        flags AS (
             SELECT
                 id,
-                round(random() / random(), 4) financial_metric,
-                IF(round(random() / 1.25) = 1, NULL, statement_date) statement_date            
+                statement_date,
+                financial_metric,
+                round(random() / 1.25) = 1 flag_null,
+                MONTH(statement_date) IN (3, 6, 9, 12) flag_season
             FROM
                 spine
             CROSS JOIN
                 ids
+        ),
+        cte AS (
+            SELECT
+                id,
+                IF(flag_null, NULL, statement_date) statement_date,
+                IF(flag_season, financial_metric * 2.5, financial_metric) financial_metric
+            FROM
+                flags
+        ),
+        final AS (
+            SELECT
+                *
+            FROM
+                cte 
+            WHERE
+                statement_date IS NOT NULL
         )
-    SELECT
+    SELECT 
         *
     FROM
-        cte
-    WHERE
-        statement_date IS NOT NULL
+        final
+    ORDER BY
+        id,
+        statement_date
 );
+
+SELECT * FROM dummy;
 
 CREATE OR REPLACE VIEW grid AS (
     SELECT DISTINCT
@@ -109,49 +135,8 @@ CREATE OR REPLACE VIEW final AS (
         n = 1
 );
 
--- COPY dat TO 'data.csv' (HEADER, DELIMITER ',');
-
--- Q1
-SELECT
-    id,
-    round(sum(financial_metric), 2) total_financial_metric,
-    round(avg(financial_metric), 2) avg_financial_metric
-FROM
-    dummy
-GROUP BY
-    1
-ORDER BY
-    1;
-
--- Q2
-SELECT 
-    last_day(statement_date) month_end,
-    count(id) id_count,
-    round(sum(financial_metric), 2) total_financial_metric,
-    round(avg(financial_metric), 2) avg_financial_metric
-FROM
-    dummy
-WHERE
-    month_end IS NOT NULL
-GROUP BY
-    1
-ORDER BY
-    1;
-
--- Q3
-
--- 1. Do yourself
--- 2. Correct
--- 3. Extend one of the two
-
-
--- Identify which months of data are missing
--- Count ranges exceeding thresh for each ID
--- Months where I > J
--- Top 3 metrics by month
--- What kinds of analysis could you run
-
-SELECT
-    COUNT(*)
-FROM
-    dummy;
+COPY dummy TO 'interview_task_data.csv.gz' (
+        HEADER, 
+        COMPRESSION 'gzip',
+        DELIMITER ','
+);
