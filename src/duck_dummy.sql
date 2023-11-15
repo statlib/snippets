@@ -15,7 +15,7 @@
 */
 
 SELECT
-    setseed(123);
+    setseed(0.25);
 
 CREATE OR REPLACE TABLE dummy AS (
     WITH RECURSIVE
@@ -135,8 +135,136 @@ CREATE OR REPLACE VIEW final AS (
         n = 1
 );
 
-COPY dummy TO 'interview_task_data.csv.gz' (
+SELECT * FROM dummy;
+
+COPY dummy TO 
+    'interview_task_data.csv.gz' (
         HEADER, 
         COMPRESSION 'gzip',
         DELIMITER ','
 );
+
+-- Q1
+SELECT
+    id,
+    round(sum(financial_metric), 2) total_financial_metric,
+    round(avg(financial_metric), 2) avg_financial_metric
+FROM
+    dummy
+GROUP BY
+    1
+ORDER BY
+    1;
+
+-- Q2
+SELECT 
+    last_day(statement_date) month_end,
+    count(id) id_count,
+    round(sum(financial_metric), 2) total_financial_metric,
+    round(avg(financial_metric), 2) avg_financial_metric
+FROM
+    dummy
+WHERE
+    month_end IS NOT NULL
+GROUP BY
+    1
+ORDER BY
+    1;
+
+-- Q3
+
+-- 1. Do yourself
+-- 2. Correct
+-- 3. Extend one of the two
+
+
+
+
+-- Identify which months of data are missing
+WITH cte AS (
+    SELECT 
+        id, 
+        statement_date,
+        DATEDIFF(
+            'month',
+            LAG(statement_date) OVER (PARTITION BY id ORDER BY statement_date),
+            statement_date
+        ) > 1 flag_date_skipped
+    FROM
+        dummy
+)
+SELECT
+    id,
+    statement_date
+FROM
+    cte
+WHERE
+    flag_date_skipped
+ORDER BY
+    1,
+    2 DESC;
+
+-- Count ranges exceeding thresh for each ID
+-- Make it MAD outlier
+-- https://currentprotocols.onlinelibrary.wiley.com/doi/full/10.1002/cpz1.719
+WITH cte AS (
+    SELECT 
+        id,
+        MEDIAN(financial_metric) OVER (PARTITION BY id) med_metric,
+        ABS(financial_metric - med_metric) abs_dev_metric,
+        (financial_metric - abs_dev_metric) 
+    FROM
+        dummy d
+    LEFT JOIN (
+        --     SELECT
+--         id,
+--         MEDIAN(abs_dev_metric) mad_metric
+--     FROM
+--         cte
+--     GROUP BY
+--         1
+    )
+)
+
+-- SELECT
+--     m1.id,
+--     m1.mad_metric = m2.mad_metric mad_test
+-- FROM (
+--     SELECT
+--         id,
+--         MEDIAN(abs_dev_metric) mad_metric
+--     FROM
+--         cte
+--     GROUP BY
+--         1
+-- ) m1
+-- LEFT JOIN (
+--     SELECT
+--         id,
+--         MAD(financial_metric) mad_metric
+--     FROM
+--         dummy
+--     GROUP BY
+--         1
+-- ) m2
+-- USING (
+--     id
+-- )
+-- ORDER BY
+--     1;
+
+-- Months where I > J
+-- Top 3 metrics by month
+-- What kinds of analysis could you run
+
+
+-- SELECT
+--     COUNT(*)
+-- FROM
+--     dummy;
+
+
+-- SELECT
+--     id,
+--     last_day(statement_date),
+--     row_number() OVER ()
